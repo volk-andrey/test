@@ -4,8 +4,6 @@ pipeline {
         booleanParam(name: 'UPDATE_PARAMS', defaultValue: false, description: 'Обновить параметры из YAML?')
         string(name: 'TARGET_NAME', defaultValue: '', description: 'Название целевого кластера Kafka')
         string(name: 'TARGET_BOOTSTRAP', defaultValue: '', description: 'Bootstrap-серверы целевого кластера')
-        string(name: 'SOURCE_NAME', defaultValue: '', description: 'Название исходного кластера Kafka')
-        string(name: 'SOURCE_BOOTSTRAP', defaultValue: '', description: 'Bootstrap-серверы исходного кластера')
     }
 
     stages {
@@ -19,20 +17,22 @@ pipeline {
             steps {
                 script {
                     try {
-                        // 1. Чтение YAML (безопасный метод)
-                        def kafkaConfig = readYaml file: 'config.yaml'
-                        assert kafkaConfig != null : "YAML config is empty"
+                        // Проверяем наличие файла
+                        if (!fileExists('config.yaml')) {
+                            error "config.yaml not found"
+                        }
                         
-                        // 2. Обновление параметров (безопасный метод)
-                        def job = currentBuild.rawBuild.parent
-                        def newParams = [
-                            string(name: 'TARGET_NAME', value: kafkaConfig.target?.name ?: ''),
-                            string(name: 'TARGET_BOOTSTRAP', value: kafkaConfig.target?.bootstrap ?: ''),
-                            string(name: 'SOURCE_NAME', value: kafkaConfig.source?.name ?: ''),
-                            string(name: 'SOURCE_BOOTSTRAP', value: kafkaConfig.source?.bootstrap ?: ''),
-                            booleanParam(name: 'UPDATE_PARAMS', value: false)
-                        ]
-                        properties([parameters(newParams)])
+                        // Читаем YAML
+                        def kafkaConfig = readYaml file: 'config.yaml'
+                        
+                        // Безопасное обновление параметров через properties
+                        properties([
+                            parameters([
+                                string(name: 'TARGET_NAME', value: kafkaConfig.target?.name ?: ''),
+                                string(name: 'TARGET_BOOTSTRAP', value: kafkaConfig.target?.bootstrap ?: ''),
+                                booleanParam(name: 'UPDATE_PARAMS', value: false)
+                            ])
+                        ])
                         
                         echo "Параметры успешно обновлены"
                     } catch (Exception e) {
@@ -43,16 +43,16 @@ pipeline {
         }
 
         stage('Main Pipeline') {
-            when { expression { !params.UPDATE_PARAMS.toBoolean() } }
+            when { 
+                expression { 
+                    return !params.UPDATE_PARAMS.toBoolean() 
+                } 
+            }
             steps {
-                script {
-                    echo """
-                    Работа с параметрами:
-                    - TARGET_NAME: ${params.TARGET_NAME}
-                    - TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}
-                    """
-                    // Основная логика пайплайна
-                }
+                echo "Основной пайплайн"
+                echo "TARGET_NAME: ${params.TARGET_NAME}"
+                echo "TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}"
+                // Ваша основная логика здесь
             }
         }
     }
