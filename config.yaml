@@ -1,16 +1,16 @@
 clusters:
   cluster1:
     target:
-      name: "Cluster1_Target"
+      name: "CLUSTER1_TARGET"
       bootstrap: "192.168.1.1:9092"
     source:
-      name: "Cluster1_Source"
+      name: "CLUSTER1_SOURCE"
       bootstrap: "192.168.1.2:9092"
   
   cluster2:
     target:
-      name: "Cluster2_Target"
+      name: "CLUSTER2_TARGET"
       bootstrap: "192.168.2.1:9092"
     source:
-      name: "Cluster2_Source"
+      name: "CLUSTER2_SOURCE"
       bootstrap: "192.168.2.2:9092"
