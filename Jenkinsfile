@@ -10,39 +10,49 @@ pipeline {
 
     stages {
         stage('Check Params Update') {
-            when { expression { params.UPDATE_PARAMS == true } }
+            when { 
+                beforeAgent true
+                expression { 
+                    return params.UPDATE_PARAMS.toBoolean() 
+                } 
+            }
             steps {
                 script {
-                    // Читаем YAML-конфиг (Python или readYaml)
-                    def kafkaConfig = readYaml file: 'config.yaml'
-
-                    // Обновляем параметры джобы
-                    def job = Jenkins.instance.getItemByFullName(env.JOB_NAME)
-                    def newParams = [
-                        new StringParameterValue('TARGET_NAME', kafkaConfig.target.name),
-                        new StringParameterValue('TARGET_BOOTSTRAP', kafkaConfig.target.bootstrap),
-                        new StringParameterValue('SOURCE_NAME', kafkaConfig.source.name),
-                        new StringParameterValue('SOURCE_BOOTSTRAP', kafkaConfig.source.bootstrap),
-                        new BooleanParameterValue('UPDATE_PARAMS', false)  // Сбрасываем флаг
-                    ]
-                    job.addOrReplaceAction(new ParametersAction(newParams))
-                    job.save()
-
-                    echo "Параметры обновлены из config.yaml"
-                    currentBuild.result = 'SUCCESS'  // Завершаем сборку без ошибок
+                    try {
+                        // 1. Чтение YAML (безопасный метод)
+                        def kafkaConfig = readYaml file: 'config.yaml'
+                        assert kafkaConfig != null : "YAML config is empty"
+                        
+                        // 2. Обновление параметров (безопасный метод)
+                        def job = currentBuild.rawBuild.parent
+                        def newParams = [
+                            string(name: 'TARGET_NAME', value: kafkaConfig.target?.name ?: ''),
+                            string(name: 'TARGET_BOOTSTRAP', value: kafkaConfig.target?.bootstrap ?: ''),
+                            string(name: 'SOURCE_NAME', value: kafkaConfig.source?.name ?: ''),
+                            string(name: 'SOURCE_BOOTSTRAP', value: kafkaConfig.source?.bootstrap ?: ''),
+                            booleanParam(name: 'UPDATE_PARAMS', value: false)
+                        ]
+                        properties([parameters(newParams)])
+                        
+                        echo "Параметры успешно обновлены"
+                    } catch (Exception e) {
+                        error "Ошибка обновления параметров: ${e.getMessage()}"
+                    }
                 }
             }
         }
 
         stage('Main Pipeline') {
-            when { expression { params.UPDATE_PARAMS == false } }
+            when { expression { !params.UPDATE_PARAMS.toBoolean() } }
             steps {
-                echo """
+                script {
+                    echo """
                     Работа с параметрами:
                     - TARGET_NAME: ${params.TARGET_NAME}
                     - TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}
-                """
-                // Ваши основные шаги здесь...
+                    """
+                    // Основная логика пайплайна
+                }
             }
         }
     }
