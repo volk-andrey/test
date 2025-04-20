@@ -9,20 +9,18 @@ pipeline {
         )
         choice(
             name: 'CLUSTER_NAME',
-            choices: ['NOT_LOADED'], // Временное значение, будет перезаписано
-            description: 'Выберите кластер из config.yaml'
+            choices: ['NOT_LOADED'], // Временное значение
+            description: 'Выберите кластер'
         )
         string(
             name: 'TARGET_NAME',
             defaultValue: '',
-            description: 'Название целевого кластера (автозаполнение)',
-            trim: true
+            description: 'Название целевого кластера'
         )
         string(
             name: 'TARGET_BOOTSTRAP',
             defaultValue: '',
-            description: 'Bootstrap целевого кластера (автозаполнение)',
-            trim: true
+            description: 'Bootstrap серверы'
         )
     }
     
@@ -30,67 +28,48 @@ pipeline {
         stage('Load Configuration') {
             steps {
                 script {
-                    // Проверяем наличие файла конфигурации
+                    // Проверяем наличие файла
                     if (!fileExists('config.yaml')) {
-                        error "Файл config.yaml не найден в workspace!"
+                        error "Файл config.yaml не найден!"
                     }
                     
-                    // Читаем конфигурацию с обработкой ошибок
-                    try {
-                        def config = readYaml file: 'config.yaml'
-                        env.CLUSTER_NAMES = config.clusters.keySet().join(',')
+                    // Читаем конфиг
+                    def config = readYaml file: 'config.yaml'
+                    def clusters = config.clusters.keySet() as List
+                    
+                    // Если нужно обновить параметры или они не загружены
+                    if (params.UPDATE_PARAMS || params.CLUSTER_NAME == 'NOT_LOADED') {
+                        // Выбираем первый кластер по умолчанию
+                        def selectedCluster = clusters[0] 
+                        def clusterConfig = config.clusters[selectedCluster]
                         
-                        // Если это первый запуск или обновление параметров
-                        if (params.UPDATE_PARAMS || params.CLUSTER_NAME == 'NOT_LOADED') {
-                            def clusterNames = config.clusters.keySet() as List
-                            def firstCluster = clusterNames[0]
-                            def clusterConfig = config.clusters[firstCluster]
-                            
-                            // Обновляем параметры
-                            currentBuild.rawBuild.getAction(ParametersAction.class)?.replace(
-                                new StringParameterValue('CLUSTER_NAME', firstCluster),
-                                new StringParameterValue('TARGET_NAME', clusterConfig.target.name),
-                                new StringParameterValue('TARGET_BOOTSTRAP', clusterConfig.target.bootstrap),
-                                new BooleanParameterValue('UPDATE_PARAMS', false)
-                            )
-                        }
-                    } catch (Exception e) {
-                        error "Ошибка чтения config.yaml: ${e.getMessage()}"
+                        // Обновляем параметры через properties
+                        properties([
+                            parameters([
+                                booleanParam(name: 'UPDATE_PARAMS', defaultValue: false),
+                                choice(name: 'CLUSTER_NAME', choices: clusters),
+                                string(name: 'TARGET_NAME', defaultValue: clusterConfig.target.name),
+                                string(name: 'TARGET_BOOTSTRAP', defaultValue: clusterConfig.target.bootstrap)
+                            ])
+                        ])
+                        
+                        echo "Параметры обновлены для кластера: ${selectedCluster}"
                     }
-                }
-            }
-        }
-        
-        stage('Validate Cluster') {
-            when {
-                expression { !params.UPDATE_PARAMS }
-            }
-            steps {
-                script {
-                    // Проверяем, что параметры кластера валидны
-                    if (params.CLUSTER_NAME == 'NOT_LOADED' || !params.TARGET_NAME || !params.TARGET_BOOTSTRAP) {
-                        error """
-                        Параметры кластера не загружены!
-                        Запустите сборку с параметром UPDATE_PARAMS=true
-                        """
-                    }
-                    
-                    echo "Выбран кластер: ${params.CLUSTER_NAME}"
                 }
             }
         }
         
         stage('Main Pipeline') {
             when {
-                expression { !params.UPDATE_PARAMS }
+                expression { !params.UPDATE_PARAMS && params.CLUSTER_NAME != 'NOT_LOADED' }
             }
             steps {
                 script {
                     echo """
-                    ===== Конфигурация кластера =====
+                    ===== Конфигурация =====
                     Кластер: ${params.CLUSTER_NAME}
-                    Target Name: ${params.TARGET_NAME}
-                    Target Bootstrap: ${params.TARGET_BOOTSTRAP}
+                    Target: ${params.TARGET_NAME}
+                    Bootstrap: ${params.TARGET_BOOTSTRAP}
                     """
                     
                     // Ваша основная логика здесь
