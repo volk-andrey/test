@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'linux && docker' // запускать только на агентах с этими метками
+    }
     stages {
         stage('Test') {
             steps {
