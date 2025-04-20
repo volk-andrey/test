@@ -25,16 +25,20 @@ pipeline {
                         // Читаем YAML
                         def kafkaConfig = readYaml file: 'config.yaml'
                         
-                        // Безопасное обновление параметров через properties
-                        properties([
-                            parameters([
-                                string(name: 'TARGET_NAME', value: kafkaConfig.target?.name ?: ''),
-                                string(name: 'TARGET_BOOTSTRAP', value: kafkaConfig.target?.bootstrap ?: ''),
-                                booleanParam(name: 'UPDATE_PARAMS', value: false)
-                            ])
-                        ])
+                        // Правильный способ обновления параметров
+                        def newParams = [
+                            string(name: 'TARGET_NAME', defaultValue: kafkaConfig.target?.name ?: ''),
+                            string(name: 'TARGET_BOOTSTRAP', defaultValue: kafkaConfig.target?.bootstrap ?: ''),
+                            booleanParam(name: 'UPDATE_PARAMS', defaultValue: false)
+                        ]
+                        
+                        // Обновляем параметры
+                        properties([parameters: newParams])
                         
                         echo "Параметры успешно обновлены"
+                        
+                        // Принудительно продолжаем выполнение для Main Pipeline
+                        env.CONTINUE_PIPELINE = "true"
                     } catch (Exception e) {
                         error "Ошибка обновления параметров: ${e.getMessage()}"
                     }
@@ -45,14 +49,20 @@ pipeline {
         stage('Main Pipeline') {
             when { 
                 expression { 
-                    return !params.UPDATE_PARAMS.toBoolean() 
+                    // Проверяем либо флаг UPDATE_PARAMS=false, либо специальную переменную
+                    return !params.UPDATE_PARAMS.toBoolean() || env.CONTINUE_PIPELINE == "true"
                 } 
             }
             steps {
-                echo "Основной пайплайн"
-                echo "TARGET_NAME: ${params.TARGET_NAME}"
-                echo "TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}"
-                // Ваша основная логика здесь
+                script {
+                    echo "Основной пайплайн"
+                    echo "TARGET_NAME: ${params.TARGET_NAME}"
+                    echo "TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}"
+                    // Ваша основная логика здесь
+                    
+                    // Очищаем временную переменную
+                    env.CONTINUE_PIPELINE = null
+                }
             }
         }
     }
