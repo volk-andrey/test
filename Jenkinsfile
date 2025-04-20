@@ -1,15 +1,10 @@
 pipeline {
-    agent {
-        label 'linux && docker' // запускать только на агентах с этими метками
-    }
+    agent any
     stages {
         stage('Test') {
             steps {
                 script {
-                    withYaml('config.yaml') {
-                        echo "Target: ${target.name}"
-                        echo "Source: ${source.name}"
-                    }
+                    sh 'python test.py'
                 }
             }
         }
