@@ -17,6 +17,7 @@ pipeline {
         stage('Test') {
             steps {
                 container('python') {
+                    sh 'pip install pyyaml'
                     sh 'python test.py'
                 }
             }
