@@ -25,20 +25,20 @@ pipeline {
                         // Читаем YAML
                         def kafkaConfig = readYaml file: 'config.yaml'
                         
-                        // Правильный способ обновления параметров
+                        // Правильный формат для обновления параметров
                         def newParams = [
-                            string(name: 'TARGET_NAME', defaultValue: kafkaConfig.target?.name ?: ''),
-                            string(name: 'TARGET_BOOTSTRAP', defaultValue: kafkaConfig.target?.bootstrap ?: ''),
-                            booleanParam(name: 'UPDATE_PARAMS', defaultValue: false)
+                            [$class: 'StringParameterDefinition', name: 'TARGET_NAME', defaultValue: kafkaConfig.target?.name ?: ''],
+                            [$class: 'StringParameterDefinition', name: 'TARGET_BOOTSTRAP', defaultValue: kafkaConfig.target?.bootstrap ?: ''],
+                            [$class: 'BooleanParameterDefinition', name: 'UPDATE_PARAMS', defaultValue: false]
                         ]
                         
-                        // Обновляем параметры
-                        properties([parameters: newParams])
+                        // Обновляем параметры с правильным синтаксисом
+                        properties([
+                            [$class: 'ParametersDefinitionProperty', parameterDefinitions: newParams]
+                        ])
                         
                         echo "Параметры успешно обновлены"
-                        
-                        // Принудительно продолжаем выполнение для Main Pipeline
-                        env.CONTINUE_PIPELINE = "true"
+                        currentBuild.result = 'SUCCESS'  // Явно указываем успешное выполнение
                     } catch (Exception e) {
                         error "Ошибка обновления параметров: ${e.getMessage()}"
                     }
@@ -49,20 +49,14 @@ pipeline {
         stage('Main Pipeline') {
             when { 
                 expression { 
-                    // Проверяем либо флаг UPDATE_PARAMS=false, либо специальную переменную
-                    return !params.UPDATE_PARAMS.toBoolean() || env.CONTINUE_PIPELINE == "true"
+                    return !params.UPDATE_PARAMS.toBoolean() 
                 } 
             }
             steps {
-                script {
-                    echo "Основной пайплайн"
-                    echo "TARGET_NAME: ${params.TARGET_NAME}"
-                    echo "TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}"
-                    // Ваша основная логика здесь
-                    
-                    // Очищаем временную переменную
-                    env.CONTINUE_PIPELINE = null
-                }
+                echo "Основной пайплайн"
+                echo "TARGET_NAME: ${params.TARGET_NAME}"
+                echo "TARGET_BOOTSTRAP: ${params.TARGET_BOOTSTRAP}"
+                // Ваша основная логика здесь
             }
         }
     }
