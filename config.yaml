@@ -1,6 +1,16 @@
-target:
-  name: IFT_RPL
-  bootstrap: 192.168.0.1,192.168.0.2
-source:
-  name: blk_IFT_RPL
-  bootstrap: 192.168.0.3,192.168.0.3
+clusters:
+  cluster1:
+    target:
+      name: "Cluster1_Target"
+      bootstrap: "192.168.1.1:9092"
+    source:
+      name: "Cluster1_Source"
+      bootstrap: "192.168.1.2:9092"
+  
+  cluster2:
+    target:
+      name: "Cluster2_Target"
+      bootstrap: "192.168.2.1:9092"
+    source:
+      name: "Cluster2_Source"
+      bootstrap: "192.168.2.2:9092"
